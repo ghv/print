@@ -1,0 +1,25 @@
+{
+  "region": "$PRINTREGION",
+  "bucket": "$PRINTBUCKET",
+  "cloudFront": "$PRINTCLOUDFRONT",
+  "originPathFolder": "$PRINTORIGINPATH",
+  "contents": [
+    {
+      "folder": "",
+      "files": [
+        "index.html"
+      ]
+    },
+    {
+      "folder": "someFolder",
+      "files": [
+        "someFolderContents/index.html"
+      ]
+    },
+    {
+      "folder": "someEmptyFolder",
+      "files": [
+      ]
+    }
+  ]
+}
