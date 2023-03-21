@@ -12,16 +12,25 @@ import Foundation
 import PrintKit
 import SotoCore
 
+fileprivate let versionContent = """
+        'print' version \(PrintKitConstants.version)
+        See https://github.com/ghv/print for latest updates
+        """
+
 struct Print: ParsableCommand {
     static var configuration = CommandConfiguration(
-           abstract: "A utility for deploying static content on S3 and CloudFront.",
-           subcommands: [It.self, Keychain.self],
-           defaultSubcommand: It.self)
+            abstract: "A utility for deploying static content on S3 and CloudFront.",
+            version: versionContent,
+            subcommands: [It.self, Keychain.self],
+            defaultSubcommand: It.self)
 }
 
 extension Print {
     struct Keychain: ParsableCommand {
-        static var configuration = CommandConfiguration(abstract: "Stores your AWS API keys in Keychain")
+        static var configuration = CommandConfiguration(abstract: "Stores your AWS API keys in Keychain.")
+
+        @Option(help: "Keychain Item")
+        var keychainItem: String = "AWS"
 
         @Argument(help: "AWS Access Key ID")
         var accessKeyId: String
@@ -38,7 +47,7 @@ extension Print {
         mutating func run() throws {
             let accessSecret = prompt(message: "Enter AWS Access Secret:")
             let aws = AWSCredentials(keyId: accessKeyId, secret: accessSecret)
-            try KeychainAccess.write(item: "AWS", value: try aws.endcoded())
+            try KeychainAccess.write(item: keychainItem, value: try aws.endcoded())
         }
     }
 }
@@ -49,8 +58,8 @@ extension Print {
     struct It: ParsableCommand {
         static var configuration = CommandConfiguration(abstract: "Upload touched files")
 
-        func getAWSCredentials() -> AWSCredentials? {
-            guard let awsData = (try? KeychainAccess.read(item: "AWS")) else {
+        func getAWSCredentials(forItem item: String) -> AWSCredentials? {
+            guard let awsData = (try? KeychainAccess.read(item: item)) else {
                 print("Error: Could not read AWS credentials")
                 return nil
             }
@@ -88,7 +97,15 @@ extension Print {
 
         mutating func run() {
 
-            guard let awsCredentials = getAWSCredentials(), let root = getRootFolder() else {
+            guard let root = getRootFolder() else {
+                return
+            }
+
+            guard let config = ContentConfiguration.load(root: root.path) else {
+                return
+            }
+
+            guard let awsCredentials = getAWSCredentials(forItem: config.keychainItem ?? "AWS") else {
                 return
             }
 

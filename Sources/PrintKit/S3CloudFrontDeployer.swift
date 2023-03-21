@@ -28,20 +28,7 @@ public class S3CloudFrontDeployer {
     public init?(client: AWSClient, inFolder rootFolder: String) {
         cloudFront = CloudFront(client: client)
         root = rootFolder
-
-        let configFileURL = URL(fileURLWithPath: "\(root)/\(PrintKitConstants.configFile)")
-        if let data = try? Data(contentsOf: configFileURL) {
-            do {
-                config = try data.decoded()
-                config.expandVariables()
-            } catch let error {
-                print("Error: Could not decode \(configFileURL.absoluteString) - \(error)")
-                return nil
-            }
-        } else {
-            print("Error: Could not read \(configFileURL.absoluteString)")
-            return nil
-        }
+        config = ContentConfiguration.load(root: rootFolder)!
 
         timeStampsFileURL = URL(fileURLWithPath: "\(root)/\(PrintKitConstants.timeStampsFile)")
         if let data = try? Data(contentsOf: timeStampsFileURL), let decoded: UploadedContents = try? data.decoded() {
@@ -66,17 +53,20 @@ public class S3CloudFrontDeployer {
         var uploadList = [(String, String, String)]()
         for target in config.contents {
             for relativeLocalFilePath in target.files {
-                let fullPath = root.appendPath(component: relativeLocalFilePath)
+                let local = relativeLocalFilePath[0]
+                let remote = relativeLocalFilePath[1]
+                let tskey = local == remote ? local : "\(local) as \(remote)"
+                let fullPath = root.appendPath(component: local)
                 let fileModTime = fullPath.fileModificationTime
-                let cloudFrontPath = target.folder.appendPath(component: relativeLocalFilePath.lastComponent)
-                if let ts = lastUploadTimeStamps[relativeLocalFilePath] {
+                let cloudFrontPath = target.folder.appendPath(component: remote.lastComponent)
+                if let ts = lastUploadTimeStamps[tskey] {
                     if fileModTime > ts {
-                        uploadList.append((fullPath, cloudFrontPath, relativeLocalFilePath))
-                        lastUploadTimeStamps[relativeLocalFilePath] = fileModTime
+                        uploadList.append((fullPath, cloudFrontPath, local))
+                        lastUploadTimeStamps[tskey] = fileModTime
                     }
                 } else {
-                    uploadList.append((fullPath, cloudFrontPath, relativeLocalFilePath))
-                    lastUploadTimeStamps[relativeLocalFilePath] = fileModTime
+                    uploadList.append((fullPath, cloudFrontPath, local))
+                    lastUploadTimeStamps[tskey] = fileModTime
                 }
             }
         }
@@ -91,7 +81,7 @@ public class S3CloudFrontDeployer {
                 let contentType = PrintKitConstants.fileExtensionMapping[fileExtension]
                 let keyPath = config.originPathFolder.appendPath(component: cloudFrontPath)
                 if let body = try? Data(contentsOf: URL(fileURLWithPath: absoluteFilePath)) {
-                    let request = S3.PutObjectRequest(acl: .publicRead, body: AWSPayload.data(body),
+                    let request = S3.PutObjectRequest(body: AWSPayload.data(body),
                                                       bucket: config.bucket, contentType: contentType, key: keyPath)
                     futures.append(s3.putObject(request))
                     print("Uploading file \(relativeLocalFilePath)...")
