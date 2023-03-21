@@ -41,7 +41,6 @@ You can limit the key's scope to the following policy:
                 "s3:PutObject",
                 "s3:ListBucket",
                 "cloudfront:CreateInvalidation",
-                "s3:PutObjectAcl"
             ],
             "Resource": [
                 "arn:aws:cloudfront::__AWS_ACCOUNT__:distribution/__DISTRIBUTION_ID__",
@@ -93,6 +92,7 @@ The root object should contain the following properties:
 
 | Property | Description |
 | ---------- | ------------- |
+| `keychainItem` | Optional keychain item name that stores the AWS credentials to use. "AWS" is used if omitted.
 | `region` | The region your S3 bucket was created in (e.g. `us-east-1`.) |
 | `bucket` | The name of the S3 bucket to put your files in. |
 | `cloudFront` | The CloudFront Distrbution ID that serves content from the specified bucket. |
@@ -106,7 +106,7 @@ Each element in the `contents` array should contain the following:
 | Property | Description |
 | ---------- | ------------- |
 | `folder` | The path in the S3 bucket that will contain the files specified by the `files` property. |
-| `files`   | An array of file name paths relative to the `contents.json` folder to be uploaded in `folder`. |
+| `files`  | An array of local file paths to be uploaded in `folder`. This could also be an array of two strings where the first is the local file path and the second is the remote file name to be uploaded in `folder`. The local file paths are relative to the `contents.json` folder. |
 
 ### Sample `contents.json`
 
@@ -128,7 +128,8 @@ This is the sample from the `TestSite` unit test resource:
     {
       "folder": "someFolder",
       "files": [
-        "someFolderContents/index.html"
+        "someFolderContents/index.html",
+        [ "someFolderContents/index.html", "copy.html"]
       ]
     },
     {

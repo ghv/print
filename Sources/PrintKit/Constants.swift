@@ -7,6 +7,7 @@
 //
 
 public enum PrintKitConstants {
+    public static let version = "0.0.2"
     public static let configFile = "contents.json"
     public static let timeStampsFile = ".contents-ts.json"
     public static let rootFolderEnvironmentVariable = "PRINTROOT"

@@ -12,6 +12,29 @@ import XCTest
 @testable import PrintKit
 
 final class ContentConfigTests: XCTestCase {
+
+
+    func testKeyChainItem() throws {
+        let data = Data("""
+            {
+              "keychainItem": "someKeychainItem",
+              "region": "someRegion",
+              "bucket": "someBucket",
+              "cloudFront": "someCloudFront",
+              "originPathFolder": "someOriginPathFolder",
+              "contents": [
+              ]
+            }
+            """.utf8)
+        let config: ContentConfiguration = try data.decoded()
+        XCTAssertEqual(config.keychainItem, "someKeychainItem")
+        XCTAssertEqual(config.region, "someRegion")
+        XCTAssertEqual(config.bucket, "someBucket")
+        XCTAssertEqual(config.cloudFront, "someCloudFront")
+        XCTAssertEqual(config.originPathFolder, "someOriginPathFolder")
+        XCTAssertEqual(config.contents.count, 0)
+    }
+
     func testDecoder() throws {
         let data = Data("""
             {
@@ -21,23 +44,30 @@ final class ContentConfigTests: XCTestCase {
               "originPathFolder": "someOriginPathFolder",
               "contents": [
                 {
-                  "folder": "someFolder",
-                  "files": [
-                    "somePath/withSomeFile"
-                  ]
+                    "folder": "someFolder",
+                    "files": [
+                        "someFile",
+                        ["anotherFile", "alias"]
+                    ]
                 }
               ]
             }
             """.utf8)
         let config: ContentConfiguration = try data.decoded()
+        XCTAssertNil(config.keychainItem)
         XCTAssertEqual(config.region, "someRegion")
         XCTAssertEqual(config.bucket, "someBucket")
         XCTAssertEqual(config.cloudFront, "someCloudFront")
         XCTAssertEqual(config.originPathFolder, "someOriginPathFolder")
         XCTAssertEqual(config.contents.count, 1)
         XCTAssertEqual(config.contents[0].folder, "someFolder")
-        XCTAssertEqual(config.contents[0].files.count, 1)
-        XCTAssertEqual(config.contents[0].files[0], "somePath/withSomeFile")
+        XCTAssertEqual(config.contents[0].files.count, 2)
+        XCTAssertEqual(config.contents[0].files[0].count, 2)
+        XCTAssertEqual(config.contents[0].files[0][0], "someFile")
+        XCTAssertEqual(config.contents[0].files[0][1], "someFile")
+        XCTAssertEqual(config.contents[0].files[1].count, 2)
+        XCTAssertEqual(config.contents[0].files[1][0], "anotherFile")
+        XCTAssertEqual(config.contents[0].files[1][1], "alias")
     }
 
     func testVariableExpanded() throws {
