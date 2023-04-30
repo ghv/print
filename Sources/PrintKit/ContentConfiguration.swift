@@ -28,6 +28,7 @@ public struct ContentConfiguration: Decodable {
 
     struct ContentFolder: Decodable {
         enum CodingKeys: String, CodingKey {
+            case compactInvalidation
             case folder
             case files
         }
@@ -50,6 +51,9 @@ public struct ContentConfiguration: Decodable {
             }
         }
 
+        /// Invalidate files using "\(folder)/*" rather than individual files under this path.
+        var compactInvalidation: Bool
+
         /// The folder or path that will contiain the files specified (key path prefix in S3)
         var folder: String
 
@@ -59,6 +63,7 @@ public struct ContentConfiguration: Decodable {
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             folder = try container.decode(String.self, forKey: .folder)
+            compactInvalidation = try container.decodeIfPresent(Bool.self, forKey: .compactInvalidation) ?? false
             let anyFiles = try container.decode([File].self, forKey: .files)
             files = anyFiles.map { $0.value }
         }
@@ -93,6 +98,45 @@ public struct ContentConfiguration: Decodable {
             }
         }
     }
+
+    // Compacts the paths using wildcards if there is more than one change in or under a compactable folder
+    func compactChangedKeysToWildcards(_ changedKeys: [String]) -> [String] {
+        var remainingChangedKeys = changedKeys
+        let wildcardFolders = contents.compactMap {
+            if $0.compactInvalidation {
+                return $0.folder
+            } else {
+                return nil
+            }
+        }.sorted{ $0 > $1 }
+
+        var wildcards: [String] = []
+        for folder in wildcardFolders {
+            let keysInFolder = remainingChangedKeys.filter { $0.starts(with: folder) }
+            if keysInFolder.count > 1 {
+                wildcards.append("\(folder)/*")
+            } else {
+                wildcards.append(contentsOf: keysInFolder)
+            }
+            remainingChangedKeys = remainingChangedKeys.filter { !$0.starts(with: folder) }
+        }
+
+        // Handle the case where there are nested wildcard levels like "/foo/*" and "/foo/bar/*" to
+        // invalidate at the lowest level but combine higher levels to reduce this to one global.
+        var result: [String] = []
+        for folder in wildcardFolders.reversed() {
+            let keysInFolder = wildcards.filter { $0.starts(with: folder) }
+            if keysInFolder.count > 1 {
+                result.append("/\(folder)/*")
+            } else {
+                result.append(contentsOf: keysInFolder.map  { "/\($0)" })
+            }
+            wildcards = wildcards.filter { !$0.starts(with: folder) }
+        }
+        result.append(contentsOf: remainingChangedKeys.map { "/\($0)" })
+        return result
+    }
+
 }
 
 typealias UploadedContents = [String:Double]

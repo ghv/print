@@ -94,7 +94,8 @@ You can use the [JSON Schema Validator](https://www.jsonschemavalidator.net) to 
                                 }
                             ]
                         }
-                    }
+                    },
+                    "compactInvalidation": { "type": "boolean" }
                 },
                 "required": ["folder", "files"]
            }   
@@ -123,6 +124,7 @@ Each element in the `contents` array should contain the following:
 | ---------- | ------------- |
 | `folder` | The path in the S3 bucket that will contain the files specified by the `files` property. |
 | `files`  | An array of local file paths to be uploaded in `folder`. Each element in this array can be either a string containing the local file path or an array of two strings where the first element is the local file path and the second is the remote file name. The local file paths are relative to the `contents.json` folder. |
+| `compactInvalidation` | When set to `true`, invalidates everything under this folder rather than invalidating individual files when two or more files have changed. The default value is `false` if the key is omitted. |
 
 ### Sample `contents.json`
 

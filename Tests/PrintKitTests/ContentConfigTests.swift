@@ -61,6 +61,7 @@ final class ContentConfigTests: XCTestCase {
         XCTAssertEqual(config.originPathFolder, "someOriginPathFolder")
         XCTAssertEqual(config.contents.count, 1)
         XCTAssertEqual(config.contents[0].folder, "someFolder")
+        XCTAssertEqual(config.contents[0].compactInvalidation, false)
         XCTAssertEqual(config.contents[0].files.count, 2)
         XCTAssertEqual(config.contents[0].files[0].count, 2)
         XCTAssertEqual(config.contents[0].files[0][0], "someFile")
@@ -69,6 +70,71 @@ final class ContentConfigTests: XCTestCase {
         XCTAssertEqual(config.contents[0].files[1][0], "anotherFile")
         XCTAssertEqual(config.contents[0].files[1][1], "alias")
     }
+
+    func testReduceChangedKeys() throws {
+        let data = Data("""
+            {
+              "region": "someRegion",
+              "bucket": "someBucket",
+              "cloudFront": "someCloudFront",
+              "originPathFolder": "someOriginPathFolder",
+              "contents": [
+                {
+                    "folder": "someFolderOne",
+                    "compactInvalidation": true,
+                    "files": [
+                    ]
+                },
+                {
+                    "folder": "someFolderTwo",
+                    "files": [
+                    ]
+                },
+                {
+                    "folder": "someFolderThree",
+                    "compactInvalidation": true,
+                    "files": [
+                    ]
+                },
+                {
+                    "folder": "someFolderFour",
+                    "compactInvalidation": true,
+                    "files": [
+                    ]
+                },
+                {
+                    "folder": "someFolderFour/Five",
+                    "compactInvalidation": true,
+                    "files": [
+                    ]
+                }
+              ]
+            }
+            """.utf8)
+        let config: ContentConfiguration = try data.decoded()
+
+        let changedKeys = [
+            "someFolderOne/Foo",
+            "someFolderTwo/Foo",
+            "someFolderThree/Foo",
+            "someFolderThree/Bar",
+            "someFolderFour/Foo",
+            "someFolderFour/Five/Bar",
+            "someFolderFour/Five/Baz",
+        ].shuffled()
+
+        let expectedKeys = [
+            "/someFolderFour/*",
+            "/someFolderOne/Foo",
+            "/someFolderThree/*",
+            "/someFolderTwo/Foo",
+        ]
+
+        let resultKeys = config.compactChangedKeysToWildcards(changedKeys)
+
+        XCTAssertEqual(resultKeys, expectedKeys)
+    }
+
 
     func testVariableExpanded() throws {
         let someBAR = "BAR"
@@ -95,7 +161,7 @@ final class ContentConfigTests: XCTestCase {
         XCTAssertEqual(config.contents.count, 0)
     }
 
-    func testVariableNotExpander() throws {
+    func testVariableNotExpanded() throws {
         let data = Data("""
             {
               "region": "$BAT",

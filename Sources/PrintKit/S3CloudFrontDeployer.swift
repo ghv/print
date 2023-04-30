@@ -49,6 +49,7 @@ public class S3CloudFrontDeployer {
         s3.headBucket(S3.HeadBucketRequest(bucket: config.bucket))
     }
 
+    // [(fullLocalPath, cloudFrontFileName, localRelativePath)]
     func buildTouchedFilesList() -> [(String, String, String)] {
         var uploadList = [(String, String, String)]()
         for target in config.contents {
@@ -95,11 +96,18 @@ public class S3CloudFrontDeployer {
     }
 
     func createInvalidationFuture(with changes: [(String, String, String)]) -> EventLoopFuture<CloudFront.CreateInvalidationResult> {
-        let changedKeys = changes.map { (_, cloudFrontPath, _) in
-            "/\(cloudFrontPath)"
+        let allChangedKeys = changes.map{ $0.1 }
+        print("All Changed Keys:")
+        for key in allChangedKeys {
+            print("   \(key)")
         }
-        if changedKeys.count > 0 {
-            let paths = CloudFront.Paths(items: changedKeys, quantity: changedKeys.count)
+        let reducedChangedKeys = config.compactChangedKeysToWildcards(allChangedKeys)
+        if reducedChangedKeys.count > 0 {
+            print("Invalidated Keys:")
+            for key in reducedChangedKeys {
+                print("   \(key)")
+            }
+            let paths = CloudFront.Paths(items: reducedChangedKeys, quantity: reducedChangedKeys.count)
             let batch = CloudFront.InvalidationBatch(callerReference: Date().timeStampID, paths: paths)
             let request = CloudFront.CreateInvalidationRequest(distributionId: config.cloudFront, invalidationBatch: batch)
             return cloudFront.createInvalidation(request)
