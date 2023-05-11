@@ -11,9 +11,9 @@ This tool only uploads changed files to the S3 bucket and invalidates the relate
 ## Why?
 
 1. Take advantage of the scale, reliability, and performance of S3 and CloudFront
-1. While these are not free services from AWS, they could be cost-effective compared to maintaining and achieving the above on your own
-1. `print` has a simple approach that is easy to set up and use
-1. It might keep you from getting "✪ Daring Fireballed"
+2. While these are not free services from AWS, they could be cost-effective compared to maintaining and achieving the above on your own
+3. `print` has a simple approach that is easy to set up and use
+4. It might keep you from getting "✪ Daring Fireballed"
 
 # Build
 
@@ -21,7 +21,7 @@ Run `make install` in the project's root folder to compile and install this tool
 
 # Setup
 
-## Setup your AWS Credentials in Keychain
+## Set up your AWS Credentials in Keychain
 
 A one-time setup is required to save the AWS Access keys in your keychain for each AWS key you use. The default Keychain item is "AWS", and you can specify an alternate item for each content configuration file.
 To save the key to an alternate Keychain item, add the `--keychain-item [your_item_name]` in the `[options]` part of the command and add the name in the `keychainItem` property of your content configuration file.
@@ -40,6 +40,7 @@ You can limit the key's scope to the following policy:
             "Effect": "Allow",
             "Action": [
                 "s3:PutObject",
+                "s3:DeleteObject",
                 "s3:ListBucket",
                 "cloudfront:CreateInvalidation"
             ],
@@ -95,7 +96,8 @@ You can use the [JSON Schema Validator](https://www.jsonschemavalidator.net) to 
                             ]
                         }
                     },
-                    "compactInvalidation": { "type": "boolean" }
+                    "compactInvalidation": { "type": "boolean" },
+                    "prune": { "type": "boolean" }
                 },
                 "required": ["folder", "files"]
            }   
@@ -107,24 +109,36 @@ You can use the [JSON Schema Validator](https://www.jsonschemavalidator.net) to 
 
 The root object should contain the following properties:
 
-| Property | Description |
-| ---------- | ------------- |
-| `keychainItem` | Optional keychain item name that stores the AWS credentials. "AWS" is used if omitted.
-| `region` | The region your S3 bucket was created in (e.g. `us-east-1`.) |
-| `bucket` | The name of the S3 bucket to put your files in. |
-| `cloudFront` | The CloudFront Distribution ID that serves content from the specified bucket. |
+| Property           | Description                                                                                                                                                                                                                 |
+|--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `keychainItem`     | Optional keychain item name that stores the AWS credentials. "AWS" is used if omitted.                                                                                                                                      |
+| `region`           | The region your S3 bucket was created in (e.g. `us-east-1`.)                                                                                                                                                                |
+| `bucket`           | The name of the S3 bucket to put your files in.                                                                                                                                                                             |
+| `cloudFront`       | The CloudFront Distribution ID that serves content from the specified bucket.                                                                                                                                               |
 | `originPathFolder` | An optional folder for cases where the same bucket could host QA, PROD, or other site contents. The CloudFront distribution should also reflect this origin path. Leave as `""` if files are served from the entire bucket. |
-| `contents` | An array containing the folders to create in the bucket and the files that should go into each of those folders. |
+| `contents`         | An array containing the folders to create in the bucket and the files that should go into each of those folders.                                                                                                            |
 
 You can reference an environment variable containing the desired value by specifying the environment variable's name with a `$` prefix. You can use the environment variable indirection for all root properties that accept a string value.
 
 Each element in the `contents` array should contain the following:
 
-| Property | Description |
-| ---------- | ------------- |
-| `folder` | The path in the S3 bucket that will contain the files specified by the `files` property. |
-| `files`  | An array of local file paths to be uploaded in `folder`. Each element in this array can be either a string containing the local file path or an array of two strings where the first element is the local file path and the second is the remote file name. The local file paths are relative to the `contents.json` folder. |
-| `compactInvalidation` | When set to `true`, invalidates everything under this folder rather than invalidating individual files when two or more files have changed. The default value is `false` if the key is omitted. |
+| Property              | Description                                                                                                                                                                                                                                                                                                                  |
+|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `folder`              | The path in the S3 bucket that will contain the files specified by the `files` property.                                                                                                                                                                                                                                     |
+| `files`               | An array of local file paths to be uploaded in `folder`. Each element in this array can be either a string containing the local file path or an array of two strings where the first element is the local file path and the second is the remote file name. The local file paths are relative to the `contents.json` folder. |
+| `prune`               | When set to `true`, deletes all files from the bucket in this `folder` that are no longer specified when comparing the two `content.json` files. The default value is `false` if the key is omitted.                                                                                                                         |
+| `compactInvalidation` | When set to `true`, invalidates everything under this folder rather than invalidating individual files when two or more files have changed. The default value is `false` if the key is omitted.                                                                                                                              |
+
+### Deleting Files from the Bucket
+
+If you want to delete files from the bucket that are no longer part of your distribution, you will need to do two things:
+
+1. Add the `prune` property to the `contents` array element for each folder where you want obsolete files deleted from your bucket.
+2. Since the `contents.json` defines the current set of files to upload you must first copy or rename the current one to `contents.old.json` and when making changes or building a new `contents.json`.
+
+This works best when you generate the `contents.json` file as part of your build process.
+
+Every time you run `print` to deploy changed files, it will compare the two files and any target files that are not in the new `contents.json` file will be deleted from the bucket. The `contents.old.json` file will be deleted after the upload is complete. The delete operation will only be performed if there exists a `contents.old.json` file, and it has at least one folder with the `prune` property set to `true`.
 
 ### Sample `contents.json`
 
@@ -164,17 +178,17 @@ The following is the `contents.json` file from the `TestSite` unit test resource
 The `TestSite` content configuration references the following environment variables to make it runnable from your AWS account.
 You must provide these values to run the `DeployerTests` test case.  
 
-| Variable | Description |
-| --------- | ------------- |
-| `PRINTBUCKET` | The test bucket name  |
-| `PRINTREGION` | The region you created your S3 bucket in |
-| `PRINTCLOUDFRONT` | The CloudFront Distribution ID that serves the bucket contents |
+| Variable          | Description                                                                                                                                                       |
+|-------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `PRINTBUCKET`     | The test bucket name                                                                                                                                              |
+| `PRINTREGION`     | The region you created your S3 bucket in                                                                                                                          |
+| `PRINTCLOUDFRONT` | The CloudFront Distribution ID that serves the bucket contents                                                                                                    |
 | `PRINTORIGINPATH` | An optional folder for cases where the same bucket could host QA, PROD, or other site contents. The CloudFront distribution should also specify this origin path. |
 
 # Built-in Environment Variables
 
-| Variable | Description |
-| --------- | ------------- |
+| Variable    | Description                                                                                                                                                                                                         |
+|-------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `PRINTROOT` | Path to the root folder that contains the `contents.json` file. Set this variable if you want to run the tool from any folder. Otherwise, you must run this tool from the folder containing a `contents.json` file. |
 
 # License

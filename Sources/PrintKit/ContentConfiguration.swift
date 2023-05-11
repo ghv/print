@@ -10,25 +10,39 @@ import Foundation
 
 public struct ContentConfiguration: Decodable {
 
-    public static func load(root: String) -> ContentConfiguration? {
-        let configFileURL = URL(fileURLWithPath: "\(root)/\(PrintKitConstants.configFile)")
+    public static func load(root: String, file: String = PrintKitConstants.configFile) -> ContentConfiguration? {
+        let isLatest = file == PrintKitConstants.configFile
+        let configFileURL = URL(fileURLWithPath: "\(root)/\(file)")
         if let data = try? Data(contentsOf: configFileURL) {
             do {
                 var config: ContentConfiguration = try data.decoded()
                 config.expandVariables()
+                config.isLatestConfig = isLatest
                 return config
             } catch let error {
                 print("Error: Could not decode \(configFileURL.absoluteString) - \(error)")
             }
         } else {
-            print("Error: Could not read \(configFileURL.absoluteString)")
+            if isLatest {
+                print("Error: Could not read \(configFileURL.absoluteString)")
+            }
         }
         return nil
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case keychainItem
+        case region
+        case bucket
+        case cloudFront
+        case originPathFolder
+        case contents
     }
 
     struct ContentFolder: Decodable {
         enum CodingKeys: String, CodingKey {
             case compactInvalidation
+            case prune
             case folder
             case files
         }
@@ -54,6 +68,9 @@ public struct ContentConfiguration: Decodable {
         /// Invalidate files using "\(folder)/*" rather than individual files under this path.
         var compactInvalidation: Bool
 
+        /// If true, all target keys that are in the contents.old.json will be deleted if they do not exist in contents.json
+        var prune: Bool
+
         /// The folder or path that will contiain the files specified (key path prefix in S3)
         var folder: String
 
@@ -64,6 +81,7 @@ public struct ContentConfiguration: Decodable {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             folder = try container.decode(String.self, forKey: .folder)
             compactInvalidation = try container.decodeIfPresent(Bool.self, forKey: .compactInvalidation) ?? false
+            prune = try container.decodeIfPresent(Bool.self, forKey: .prune) ?? false
             let anyFiles = try container.decode([File].self, forKey: .files)
             files = anyFiles.map { $0.value }
         }
@@ -86,6 +104,9 @@ public struct ContentConfiguration: Decodable {
 
     /// The list of folders and files to serve in the bucket
     var contents: [ContentFolder]
+
+    /// Internal variable to track if this is an old or new config file
+    var isLatestConfig = false
 
     mutating func expandVariables(using internalValues: [String:String]? = nil) {
         let variableKeyPaths: [WritableKeyPath<ContentConfiguration, String>] = [\.region, \.bucket, \.cloudFront, \.originPathFolder]
@@ -135,6 +156,20 @@ public struct ContentConfiguration: Decodable {
         }
         result.append(contentsOf: remainingChangedKeys.map { "/\($0)" })
         return result
+    }
+
+    func buildCloudFrontKeys() -> [String] {
+        var keys = [String]()
+        for folder in contents {
+            if isLatestConfig || folder.prune {
+                for localRemoteFile in folder.files {
+                    let remote = localRemoteFile[1]
+                    let cloudFrontPath = folder.folder.appendPath(component: remote.lastComponent)
+                    keys.append("/\(cloudFrontPath)")
+                }
+            }
+        }
+        return keys
     }
 
 }
