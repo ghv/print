@@ -71,3 +71,9 @@ extension String {
         return path
     }
 }
+
+extension Int {
+    func plural(_ word: String) -> String {
+        self == 1 ? word : "\(word)s"
+    }
+}

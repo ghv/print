@@ -46,7 +46,7 @@ final class DeployerTests: XCTestCase {
                 let future = publisher.run()
                 do {
                     let result = try future.wait()
-                    XCTAssertGreaterThanOrEqual(result, 0)
+                    XCTAssertGreaterThanOrEqual(result.uploaded, 0)
                 } catch let error {
                     dump(error)
                     print("threw error \"\(error)\"")

@@ -37,4 +37,11 @@ final class ExtensionTests: XCTestCase {
         let someFixedContent = "test content"
         XCTAssertEqual(someFixedContent.sha256, "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72")
     }
+
+    func testPlural() {
+        XCTAssertEqual("file",  1.plural("file"))
+        XCTAssertEqual("files", 0.plural("file"))
+        XCTAssertEqual("files", 2.plural("file"))
+    }
+
 }

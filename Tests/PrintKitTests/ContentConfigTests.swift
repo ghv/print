@@ -135,6 +135,52 @@ final class ContentConfigTests: XCTestCase {
         XCTAssertEqual(resultKeys, expectedKeys)
     }
 
+    func testBuildCloudFrontKeys() throws {
+        let data = Data("""
+            {
+              "region": "someRegion",
+              "bucket": "someBucket",
+              "cloudFront": "someCloudFront",
+              "originPathFolder": "someOriginPathFolder",
+              "contents": [
+                {
+                    "folder": "someFolderOne/",
+                    "prune": true,
+                    "files": [
+                        "foo",
+                        "bar"
+                    ]
+                },
+                {
+                    "folder": "someFolderTwo/with/a/path",
+                    "files": [
+                        "file1",
+                    ]
+                }
+              ]
+            }
+            """.utf8)
+        var config: ContentConfiguration = try data.decoded()
+        config.isLatestConfig = false
+
+        let expectedPruneKeys = [
+            "/someFolderOne/foo",
+            "/someFolderOne/bar"
+        ]
+
+        let expectedAllKeys = [
+            "/someFolderOne/foo",
+            "/someFolderOne/bar",
+            "/someFolderTwo/with/a/path/file1"
+        ]
+
+        let resultPruneKeys = config.buildCloudFrontKeys()
+        XCTAssertEqual(resultPruneKeys, expectedPruneKeys)
+
+        config.isLatestConfig = true
+        let resultAllKeys = config.buildCloudFrontKeys()
+        XCTAssertEqual(resultAllKeys, expectedAllKeys)
+    }
 
     func testVariableExpanded() throws {
         let someBAR = "BAR"
