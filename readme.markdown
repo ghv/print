@@ -1,7 +1,9 @@
 ![Print](https://media.giphy.com/media/lXiRLb0xFzmreM8k8/source.gif)
 ###### *Image credit: [gfaught](https://giphy.com/gfaught)*
 
-`print` is a tool to publish static files to an AWS S3 bucket and invalidate their cached copies in CloudFront.
+**UPDATE:** I renamed the command line tool from `print` to `printer` to avoid the `zsh` shell built-in command. Everything else is unchanged.
+
+Print is a tool to publish static files to an AWS S3 bucket and invalidate their cached copies in CloudFront.
 
 This tool caches the file's timestamp when uploaded and only uploads a new copy if the current timestamp does not match the cached timestamp.
 
@@ -12,7 +14,7 @@ This tool only uploads changed files to the S3 bucket and invalidates the relate
 
 1. Take advantage of the scale, reliability, and performance of S3 and CloudFront
 2. While these are not free services from AWS, they could be cost-effective compared to maintaining and achieving the above on your own
-3. `print` has a simple approach that is easy to set up and use
+3. "Print" has a simple approach that is easy to set up and use
 4. It might keep you from getting "✪ Daring Fireballed"
 
 # Build
@@ -25,7 +27,7 @@ Run `make install` in the project's root folder to compile and install this tool
 
 A one-time setup is required to save the AWS Access keys in your keychain for each AWS key you use. The default Keychain item is "AWS", and you can specify an alternate item for each content configuration file.
 To save the key to an alternate Keychain item, add the `--keychain-item [your_item_name]` in the `[options]` part of the command and add the name in the `keychainItem` property of your content configuration file.
-Run `print keychain [options] [AWS Access Key ID]` and then paste in the `AWS Access Secret` when prompted.
+Run `printer keychain [options] [AWS Access Key ID]` and then paste in the `AWS Access Secret` when prompted.
 
 ### Minimal IAM policy
 
@@ -138,7 +140,7 @@ If you want to delete files from the bucket that are no longer part of your dist
 
 This works best when you generate the `contents.json` file as part of your build process.
 
-Every time you run `print` to deploy changed files, it will compare the two files and any target files that are not in the new `contents.json` file will be deleted from the bucket. The `contents.old.json` file will be deleted after the upload is complete. The delete operation will only be performed if there exists a `contents.old.json` file, and it has at least one folder with the `prune` property set to `true`.
+Every time you run Print (command line tool is called `printer`) to deploy changed files, it will compare the two files and any target files that are not in the new `contents.json` file will be deleted from the bucket. The `contents.old.json` file will be deleted after the upload is complete. The delete operation will only be performed if there exists a `contents.old.json` file, and it has at least one folder with the `prune` property set to `true`.
 
 ### Sample `contents.json`
 
@@ -193,7 +195,7 @@ You must provide these values to run the `DeployerTests` test case.
 
 # License
 
-`print` is licensed under the Apache 2.0 License. Contributions welcome.
+Print is licensed under the Apache 2.0 License. Contributions welcome.
 
 See [LICENSE.txt](LICENSE.txt) for license information.
 
