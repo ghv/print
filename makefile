@@ -1,7 +1,7 @@
 .PHONY: unit build run test rbuild install clean
 
 RELEASE_FLAGS = -c release
-EXECUTABLE_PATH = $(shell swift build $(RELEASE_FLAGS) --show-bin-path)/print
+EXECUTABLE_PATH = $(shell swift build $(RELEASE_FLAGS) --show-bin-path)/printer
 INSTALL_FOLDER = /usr/local/bin
 
 unit:

@@ -9,7 +9,7 @@ let package = Package(
     ],
     products: [
         .executable(
-            name: "print",
+            name: "printer",
             targets: ["PrintMain"]),
         .library(
             name: "PrintKit",
